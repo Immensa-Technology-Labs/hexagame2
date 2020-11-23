@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three hexagame</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link rel="stylesheet" type="text/css"   href="/css/main.css">
+		<script type="text/javascript" src="./build/three.min.js"></script>
+		<style>
+			#menu {
+				position: absolute;
+				bottom: 20px;
+				width: 100%;
+				text-align: center;
+				padding: 0;
+				margin: 0;
+			}
+
+			button {
+				color: rgb(255,255,255);
+				border: 1px;
+				padding: 5px 10px;
+				cursor: pointer;
+				background-color: rgba(60,60,60,0.8);
+			}
+			button:hover {
+				background-color: rgba(100,100,100,0.5);
+			}
+			button:active {
+				color: #000000;
+				background-color: rgba(0,255,255,1);
+			}
+
+			.label {
+				color: rgb(0,0,0);
+				text-shadow: -1px 1px 1px rgb(0,0,0);
+				margin-left: 25px;
+				font-size: 20px;
+			}
+
+			text {
+				color: rgb(0,0,0);
+                background-color: rgba(60,60,60,0.5);
+				text-shadow: -1px 1px 1px rgb(0,0,0);
+				margin-left: 25px;
+				font-size: 20px;
+				border: 0px;
+			}
+			input
+			{
+				color: rgb(255,255,255);
+				background-color: rgba(60,60,60,0.5);
+				/*text-shadow: -1px 1px 1px rgb(255,255,255);*/
+				margin-left: 25px;
+				font-size: 20px;
+				border: 0px;
+			}
+			.options {
+				border: 1px solid #e5e5e5;
+				padding: 5px 10px;
+				margin-left: 25px;
+				text-align: center;
+				font-family: Arial;
+
+			}
+
+			select {
+				border: 1px;
+				padding: 1px 1px;
+				border: 1px solid #e5e5e5;
+				width: 70%;
+				margin-left: 15%;
+				background-color: rgba(40,40,40,0.5);
+				box-align: center;
+			}
+			#blocker {
+				position: absolute;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(255,255,255,0.5);
+				background-size: 100% 100%;
+				background-image: url('./images/Login2.png');
+			}
+
+			#instructions {
+				width: 100%;
+				height: 100%;
+
+				display: -webkit-box;
+				display: -moz-box;
+				display: box;
+
+				-webkit-box-orient: horizontal;
+				-moz-box-orient: horizontal;
+				box-orient: horizontal;
+
+				-webkit-box-pack: center;
+				-moz-box-pack: center;
+				box-pack: center;
+
+				-webkit-box-align: center;
+				-moz-box-align: center;
+				box-align: center;
+
+				color: #ffffff;
+				text-align: center;
+				font-family: "Sabic";
+				src: url("./fonts/SABIC/Desktop/SABICTypefaceText_Lt.ttf") format("truetype");
+				font-size: 14px;
+				line-height: 24px;
+
+				cursor: pointer;
+			}
+			#top {
+				position:   fixed;
+				top:        35px;
+				left:       35px;
+				width: 235px;
+				height: 35px;
+				text-align: left;
+			}
+			@font-face{
+				font-family: "Sabic";
+				src: url("./fonts/SABIC/Desktop/SABICTypefaceText_Lt.ttf") format("truetype");
+			}
+		</style>
+	</head>
+	<body>
+	<script src = "/socket.io/socket.io.js"></script>
+		<script type="module">
+			var socket = io();
+			socket.on('drawAllHexagons', function (data) {
+				//console.log(data);
+				var topElem = document.getElementById( 'top' );
+				topElem.innerHTML = data.length + " Users Reached the Final Stage";
+				if(curr_page == CurrentPage.FINAL)
+					loadAllHexagons(data);
+			});
+
+			function onNameEntered() {
+				return function () {
+					curr_page = CurrentPage.QUESTION1;
+					userName = document.getElementById("nameTextId").value;
+					instructions.style.display = 'none';
+					blocker.style.display = 'none';
+					var menuElem = document.getElementById("menu");
+					menuElem.style.display = 'block';
+					var selectUi = document.getElementById("idSelection");
+					selectUi.style.display = 'none';
+					var text = document.getElementById( 'questionTextId' );
+					text.innerHTML = 'Think about everything you’ve heard over the last 2 days and imagining the road ahead\n' +
+							'\n' +
+							'Think of ONE word of 9 characters or less that you think is needed in our formula to thrive.';
+					init();
+					animate();
+				}
+			}
+
+			import { OrbitControls } from './build/OrbitControls.js';
+			import { GLTFLoader } from './build/GLTFLoader.js';
+			import { TTFLoader } from './build/TTFLoader.js';
+			import { TransformControls } from './build/TransformControls.js';
+
+			var container;	//, controls;
+			var controls;
+			var camera, scene, renderer;
+			var font_1;
+			var offset = new THREE.Vector3();
+			const CurrentPage = {
+				LOGIN: 1,
+				QUESTION1: 2,
+				QUESTION2: 3,
+				FINAL: 4
+			};
+			let curr_page = CurrentPage.LOGIN;
+			var hexCounter = 0;
+			var menu = document.getElementById( 'menu' );
+			var btn = document.getElementById("enterNameButtonId");
+			btn.addEventListener('click', onNameEntered(), false);
+
+			var next1Button = document.getElementById( 'nextButtonId' );
+			next1Button.addEventListener( 'click', next1ButtonCallback( ) );
+
+			var leadershipQualities = {"Excellence Driver":0x041e42,
+				"Collaboration Partner":0x009fe9,
+				"Talent Champion":0x939598,
+				"Innovation Pioneer":0xffcd00};
+			var cylinder,userGroup1,userGroup2;
+			var leadershipQuality, userName,answer1;
+			var hangerBody,headerboard;
+			var B_DEBUG = false;
+			const positions = [];
+			const point = new THREE.Vector3();
+
+			const raycaster = new THREE.Raycaster();
+
+			const geometry = new THREE.BoxBufferGeometry( 20, 20, 20 );
+			//let transformControl;
+			const pointer = new THREE.Vector2();
+			const onUpPosition = new THREE.Vector2();
+			const onDownPosition = new THREE.Vector2();
+			function createInitialGeometry()
+			{
+				userGroup1 = new THREE.Group();
+				scene.add( userGroup1 );
+				const geometry = new THREE.CylinderBufferGeometry( 15,15, 3, 6 );
+
+				var color =0x041e42;
+				const meshMaterial = new THREE.MeshLambertMaterial( {color: color} );
+
+				cylinder = new THREE.Mesh( geometry, meshMaterial );
+				cylinder.rotation.x = -90 * Math.PI/180;
+				cylinder.rotation.y = -90 * Math.PI/180;
+				cylinder.castShadow = true;
+				cylinder.receiveShadow = true;
+				userGroup1.add( cylinder );
+
+			}
+			function createLighting()
+			{
+				var light = new THREE.AmbientLight( 0xffffff ); // soft white light
+				scene.add( light );
+				light = new THREE.DirectionalLight( 0xdfebff, 1 );
+				light.position.set( 50, 200, 100 );
+				light.position.multiplyScalar( 1.3 );
+
+				light.castShadow = true;
+
+				light.shadow.mapSize.width = 1024;
+				light.shadow.mapSize.height = 1024;
+
+				const d = 300;
+
+				light.shadow.camera.left = - d;
+				light.shadow.camera.right = d;
+				light.shadow.camera.top = d;
+				light.shadow.camera.bottom = - d;
+
+				light.shadow.camera.far = 1000;
+				scene.add( light );
+			}
+			function init() {
+
+				scene = new THREE.Scene();
+				const textureLoader = new THREE.TextureLoader();
+				var backgroundTexture = textureLoader.load( './images/Background_2.png' );
+				scene.background = backgroundTexture ;//= new THREE.Color( 0xcce0ff )
+				scene.fog = new THREE.Fog( 0xcce0ff, 10, 10000 );
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera.position.z = 100;
+				scene.add( camera );
+
+				createLighting();
+
+				createInitialGeometry();
+
+				//create hex grid
+				headerboard = new Board(14,11);
+				headerboard.rotation.x = Math.PI/2;
+				headerboard.rotation.y = Math.PI/2;
+				headerboard.updateMatrixWorld();
+				scene.add(headerboard);
+
+				//load gltf model
+				var gltfLoader = new GLTFLoader();
+
+				gltfLoader.load( './models/gltf/Headboard.gltf', function ( gltf ) {
+
+					//scene.add(  );
+					gltf.scene.traverse(function (child) {
+
+						if (child.isMesh) {
+							hangerBody = child;
+
+							hangerBody.rotation.x = Math.PI ;
+							hangerBody.position.x = hangerBody.position.x + 180;
+							hangerBody.position.y = hangerBody.position.y + 310;
+							hangerBody.material.color.setHex(0xefefef);
+							scene.add( hangerBody );
+							return;
+						}
+					});
+				});
+
+				loadFont();
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				renderer.shadowMap.enabled = true;
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.getElementById( 'container' ).appendChild( renderer.domElement );
+
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.minDistance = 10;
+				controls.maxDistance = 2000;
+				controls.maxPolarAngle = Math.PI * 0.5;
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				document.addEventListener( 'mousedown', onPointerDown, false );
+				document.addEventListener( 'mouseup', onPointerUp, false );
+				document.addEventListener( 'mousemove', onPointerMove, false );
+
+			}
+
+			//
+			function loadFont() {
+				const loader = new TTFLoader();
+
+				loader.load( './fonts/SABIC/Desktop/SABICTypefaceText_Lt.ttf', function ( json ) {
+					font_1 = new THREE.Font( json );
+				} );
+
+			}
+
+			var height = 0.5,
+				size = 4,
+				curveSegments = 2,
+
+				bevelThickness = 0.1,
+				bevelSize = 0.1,
+				bevelEnabled = true,
+				fontWeight = "normal", textGeo, textMesh1; // normal bold
+				
+			var materials = [
+					new THREE.MeshLambertMaterial( { color: 0x9f9f9f } ), // front
+					new THREE.MeshLambertMaterial( { color: 0x9a9f9f } ) // side
+				];
+			function createText(text, cylinder, usergroup) {
+				
+				textGeo = new THREE.TextGeometry( text, {
+					font: font_1,
+					size: size,
+					height: height,
+					curveSegments: curveSegments,
+					bevelThickness: bevelThickness,
+					bevelSize: bevelSize,
+					bevelEnabled: bevelEnabled
+				} );
+				var target;
+				cylinder.geometry.computeBoundingBox();
+				target = cylinder.geometry.boundingBox.getSize();
+				var center = cylinder.geometry.boundingBox.getCenter();
+				textGeo.computeBoundingBox();
+				textGeo.computeVertexNormals();
+				textGeo = new THREE.BufferGeometry().fromGeometry( textGeo );
+				var textBB = textGeo.boundingBox.getSize();
+				textMesh1 = new THREE.Mesh( textGeo, materials );
+				textMesh1.position.y = cylinder.position.y -3.1;
+				textMesh1.position.z = cylinder.position.z + 1.5;
+				textMesh1.position.x = cylinder.position.x -  textBB.x/2;
+				if(textBB.x>target.x)
+				{
+					textMesh1.scale.x = target.x /textBB.x;
+					textMesh1.position.x = position.x -  13.0;
+				}
+				//textMesh1.rotation.x = 90 * Math.PI/180;
+				textMesh1.name = "IDX:" + text;
+				cylinder.userData = textMesh1;
+				textMesh1.updateMatrix();
+				usergroup.add( textMesh1 );
+			}
+
+			function leadershipQualityEntered( )
+			{
+				return function () {
+					var e = document.getElementById("idSelection");
+					if(e.selectedIndex > -1){
+						leadershipQuality = e.options[e.selectedIndex].innerHTML;
+						if(  leadershipQualities[leadershipQuality])
+						{
+							cylinder.material.color.set(leadershipQualities[leadershipQuality]);
+						}
+						render();
+					}
+				}
+			}
+
+
+			function next1ButtonCallback( ) {
+				return function () {
+					if(B_DEBUG){
+						if(curr_page == CurrentPage.FINAL)
+							socket.emit('next2ButtonCallback', {'Name':userName,'Answer1':answer1,'LeadershipQuality':leadershipQuality});
+					}
+					if(curr_page == CurrentPage.QUESTION2)
+					{
+						if(!B_DEBUG){
+							var elem = document.getElementById("idSelection");
+							elem.style.display = 'none';
+							elem = document.getElementById( 'questionTextId' );
+							elem.style.display = 'none';
+							elem = document.getElementById( 'nextButtonId' );
+							elem.style.display = 'none';
+						}
+						curr_page = CurrentPage.FINAL;
+						socket.emit('next2ButtonCallback', {'Name':userName,'Answer1':answer1,'LeadershipQuality':leadershipQuality});
+					}
+					else if(curr_page == CurrentPage.QUESTION1)
+					{	curr_page = CurrentPage.QUESTION2;
+						var txt = document.getElementById( 'inputId' );
+						if(txt.value.length > 0) {
+							answer1 = txt.value;
+							createText(txt.value, cylinder,userGroup1);
+							var quesElem = document.getElementById( 'questionTextId' );
+							quesElem.innerHTML = 'If you had to pick just one SLW priority as the “Bar Raiser” for a thriving 2021 which one would you prioritize?';
+							var selectUi = document.getElementById("idSelection");
+							selectUi.style.display = 'block';
+							selectUi.onchange = leadershipQualityEntered();
+							//for (var iterator = 0; iterator < selectUi.options.length; iterator++) {
+							//	var optionElement = selectUi.options[iterator];
+							//	optionElement.addEventListener('click', leadershipQualityEntered(optionElement));
+							//}
+							selectUi.selectedIndex = 0;
+							leadershipQuality = selectUi.options[selectUi.selectedIndex].innerHTML;
+							var button = document.getElementById('nextButtonId');
+							var inputTxt = document.getElementById('inputId');
+							inputTxt.style.display = 'none';
+						}
+					}
+				};
+
+			}
+			var objectMoving;
+			var bTranslationStarted = false;
+			var keyPressed = false;
+			function onPointerDown( event ) {
+				if(curr_page == CurrentPage.FINAL){
+
+					pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+					pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+					raycaster.setFromCamera( pointer, camera );
+
+					const intersects = raycaster.intersectObjects( scene.children, true );
+
+					for (let i=0; i< intersects.length; i++) {
+
+						const object = intersects[ i ].object;
+
+						if ( object.name == "Hexagon") {
+							objectMoving = object;
+							controls.saveState();
+							controls.enabled = false;
+							bTranslationStarted = true;
+							keyPressed = true;
+							break;
+						}
+
+					}
+
+				}
+
+			}
+
+			function onPointerUp() {
+				keyPressed = false;
+				bTranslationStarted = false;
+				render();
+			}
+			var rotation = new THREE.Vector3();
+			function onPointerMove( event ) {
+
+				if(curr_page == CurrentPage.FINAL)
+				{
+					if(bTranslationStarted && keyPressed){
+						pointer.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+						pointer.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+						raycaster.setFromCamera( pointer, camera );
+
+						const intersects = raycaster.intersectObjects( scene.children, true );
+
+						for (let i=0; i< intersects.length; i++) {
+
+							const object = intersects[ i ].object;
+
+							if ( object.name == "voxel" && objectMoving != object) {
+								var parent = object.parent;
+								objectMoving.position.y = parent.position.x;objectMoving.position.x = parent.position.z;objectMoving.position.z = parent.position.y;
+								var textMesh = objectMoving.userData;
+								var textBB = textMesh.geometry.boundingBox.getSize();
+								textMesh.position.x = parent.position.z -  textBB.x/2 ;
+								textMesh.position.y = parent.position.x -3.1 ;
+								textMesh.position.z = parent.position.y + 1.5;
+								controls.enabled = false;
+								rotation.copy(camera.rotation);
+								render();
+								break;
+							}
+						}
+					}
+					else if(controls.enabled == false){
+						controls.enabled = true;
+						controls.reset();
+					}
+
+				}
+
+			}
+			function loadAllHexagons( data) {
+				if(!userGroup2)
+				{
+					userGroup1.visible = false;
+					render();
+					userGroup2 = new THREE.Group();
+					scene.add(userGroup2);
+					//transformControl.attach(userGroup2);
+					//transformControl.enabled = false;
+					//transformControl.showZ = false;
+					//scene.add( transformControl );
+				}
+				for(let keyLocation=hexCounter;keyLocation<data.length;keyLocation++)
+				{
+					var obj = headerboard.getObjectByName(keyLocation);
+					if(obj)
+					{
+						const geometry = new THREE.CylinderBufferGeometry( 15,15, 3, 6 );
+						geometry.name = "Hexagon";
+						var color =0x7f7f9f;
+						if(data[keyLocation]["LeadershipQuality"])
+						{
+							var txtQuality  = data[keyLocation]["LeadershipQuality"];
+
+							if(leadershipQualities[txtQuality])
+							{
+								color = leadershipQualities[txtQuality];
+							}
+						}
+						const meshMaterial = new THREE.MeshLambertMaterial( {color: color} );
+						var cylinder = new THREE.Mesh( geometry, meshMaterial );
+						cylinder.castShadow = true;
+						cylinder.receiveShadow = true;
+						cylinder.rotation.x = -90 * Math.PI/180;
+						cylinder.rotation.y = -90 * Math.PI/180;
+						cylinder.position.y = obj.position.x;cylinder.position.x = obj.position.z;cylinder.position.z = obj.position.y;
+						cylinder.name = "Hexagon";
+						userGroup2.add( cylinder );
+
+						//var key = Object.keys(data)[keyLocation];
+						if(data[keyLocation]["Answer1"])
+						{
+							var qua  = data[keyLocation]["Answer1"];
+							createText(qua,cylinder,userGroup2);
+						}
+						hexCounter++;
+					}
+
+				}
+				userGroup2.updateMatrixWorld();
+				camera.position.x = 118.85134868695854;
+				camera.position.y = 177.44692449102962;
+				camera.position.z = 543.401740939562;
+				camera.fov = 50;
+				controls.target.x = 77.0;controls.target.y = 166.0;controls.target.z = 0.0;
+				controls.update();
+				camera.updateProjectionMatrix();
+				render();
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				render();
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+				render();
+
+			}
+
+			function render() {
+
+				renderer.render( scene, camera );
+				
+			}
+
+			class Tile extends THREE.Object3D {
+				constructor(radius = 15, anim = false) {
+					super();
+
+					let height = 3.2;
+					let geometry = new THREE.CylinderBufferGeometry( radius,radius, height, 6 );
+					const edges = new THREE.EdgesGeometry( geometry );
+					const line = new THREE.LineSegments( edges, new THREE.LineBasicMaterial( { color: 0xefefef } ) );
+					this.add( line );
+
+					geometry = new THREE.CylinderBufferGeometry( radius, radius, 0.0001, 6 );
+					var material = new THREE.MeshBasicMaterial( {color: 0xefefef} );
+					material.opacity = 0.1;
+					material.side = THREE.DoubleSide;
+					material.transparent=true;
+					material.depthWrite = false;
+					var cylinder = new THREE.Mesh( geometry, material );
+					cylinder.name = "voxel";
+					this.add( cylinder );
+					return this;
+				};
+			};
+
+
+			class Board extends THREE.Object3D {
+				constructor(countU, countV) {
+					super();
+
+					let radius = 15;
+					this.grid = new Array();
+
+					for(var u = 0; u < countU; u++) {
+						this.grid[u] = this.grid[u] || new Array();
+						for(var v = 0; v < (countV ); v++) {
+							let hex = new Tile(radius);
+							hex.name = u*countV + v;
+							let box = new THREE.Box3().setFromObject(hex);
+							let hexW = box.max.x - box.min.x;
+							let hexH = box.max.z - box.min.z;
+							let hexX = u * hexW;
+							let hexZ = v * hexH * .75;
+							if(Math.abs(v % 2) == 1) hexX = hexX + (hexW / 2);
+							hex.position.set(hexX, 0, hexZ);
+							this.grid[u][v] = this.grid[u][v] || new Array();
+							this.grid[u][v] = hex;
+							this.add(hex);
+						};
+					};
+
+					console.log(this.grid);
+				};
+
+				fromCube(cube) {
+					let u = cube.x + (cube.z + Math.abs(cube.z % 2)) / 2;
+					let v = cube.z;
+					return new THREE.Vector2(u, v);
+				};
+
+				toCube() {
+					let x = this.u - (this.v + Math.abs(this.v % 2)) / 2;
+					let z = this.v;
+					let y = -x-z;
+					return new THREE.Vector3(x, y, z);
+				};
+			};
+
+		</script>
+
+		<div id="menu" style = "display:none;">
+			<div id="top" style="font-size:12px; color: rgb(255,255,255);font-family: Sabic;">Users Reached Final Stage</div>
+			<label id ="questionTextId" style="font-size:18px; color: rgb(255,255,255); font-family: Sabic;">First name:</label><br/>
+			<input type="text" id="inputId" value="" style="font-family: Sabic;">
+			<select id = "idSelection" name = "dropdown" style="font-size:18px; color: rgb(255,255,255); font-family: Sabic;">
+				<option value = "Excellence Driver" selected>Excellence Driver</option>
+				<option value = "Collaboration Partner">Collaboration Partner</option>
+				<option value = "Talent Champion">Talent Champion</option>
+				<option value = "Innovation Pioneer">Innovation Pioneer</option>
+			</select>
+			<button id="nextButtonId">Click</button>
+		</div>
+		<div id="blocker">
+			<div id="instructions">
+				<span style="font-size:26px; color: rgb(0,0,0);font-family: Sabic;">Enter your name to begin</span>
+				<input type="text" id="nameTextId" value="Name" style="font-family: Sabic;">
+				<br />
+				<button id="enterNameButtonId">Enter</button><br/>
+			</div>
+
+		</div>
+		<div id="container"></div>
+	</body>
+</html>
